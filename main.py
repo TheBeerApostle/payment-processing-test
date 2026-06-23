@@ -18,7 +18,17 @@ PAYMENTS = [{
 }]
 app = FastAPI()
 
-PROCESSED = ["example_key"]
+PROCESSED = {"example_key": {
+    "id": "28282",
+    "amount": 200,
+    "currency": "RUB",
+    "description": None,
+    "metadata": None,
+    "status": "succeeded",
+    "idempotency_key": "example_key",
+    "webhook_url": "example.com",
+    "created_at": "2024-01-01"
+}}
 
 class PaymentCreateRequest(BaseModel):
     amount: Decimal
@@ -59,7 +69,7 @@ def create_payment(body:PaymentCreateRequest, idempotency_key:str=Header(..., ma
             "created_at": datetime.now(timezone.utc)
         }
         PAYMENTS.append(new_payment)
-        PROCESSED.append(idempotency_key)
+        PROCESSED[idempotency_key] = new_payment
         return PaymentCreateResponse.model_validate(new_payment)
 
 
