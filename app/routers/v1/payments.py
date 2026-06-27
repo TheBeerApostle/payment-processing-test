@@ -1,7 +1,9 @@
-from fastapi import FastAPI, Response, HTTPException, Header
+from fastapi import Response, Header
 from fastapi import APIRouter
-from schemas import PaymentCreateResponse, PaymentCreateRequest
-from repository.payments import
+from app.schemas import PaymentCreateResponse, PaymentCreateRequest
+from app.repository.payments import PAYMENTS, PROCESSED
+from datetime import datetime, timezone
+import uuid
 router = APIRouter()
 @router.get("/{payment_id}")
 def get_payment(payment_id:str):
@@ -29,4 +31,4 @@ def create_payment(body:PaymentCreateRequest, idempotency_key:str=Header(..., ma
         }
         PAYMENTS.append(new_payment)
         PROCESSED[idempotency_key] = new_payment
-        return Response(status_code=202, content=PaymentCreateResponse.model_validate(new_payment))
+        return PaymentCreateResponse.model_validate(new_payment)
