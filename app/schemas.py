@@ -12,6 +12,8 @@ class PaymentCreateRequest(BaseModel):
     def amount_must_be_positive(cls, v):
         if not v>0:
             raise HTTPException(status_code=404, detail="Amount must be positive")
+        else:
+            return v
 
 class PaymentCreateResponse(BaseModel):
     id: str

@@ -1,34 +1,16 @@
 from fastapi import Response, Header
 from fastapi import APIRouter
 from app.schemas import PaymentCreateResponse, PaymentCreateRequest
-from app.repository.payments import PAYMENTS, PROCESSED
+import app.services.payments as payment_service
 from datetime import datetime, timezone
 import uuid
 router = APIRouter()
 @router.get("/{payment_id}")
 def get_payment(payment_id:str):
-    for payment in PAYMENTS:
-        if payment["id"]==payment_id:
-            return payment
-    return None
+    return payment_service.get_payment(payment_id=payment_id)
+
 
 
 @router.post("/")
 def create_payment(body:PaymentCreateRequest, idempotency_key:str=Header(..., max_length=50)):
-    if idempotency_key in PROCESSED:
-        return f"Operation already exists."
-    else:
-        new_payment = {
-            "id": int(uuid.uuid4()),
-            "amount": body.amount,
-            "currency": body.currency,
-            "description": body.description,
-            "metadata": body.meta,
-            "status": "pending",
-            "idempotency_key": idempotency_key,
-            "webhook_url": body.webhook_url,
-            "created_at": datetime.now(timezone.utc)
-        }
-        PAYMENTS.append(new_payment)
-        PROCESSED[idempotency_key] = new_payment
-        return PaymentCreateResponse.model_validate(new_payment)
+    return payment_service.create_payment(body=body,idempotency_key=idempotency_key)
