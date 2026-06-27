@@ -19,7 +19,7 @@ def create_payment(body:PaymentCreateRequest, idempotency_key:str=Header(..., ma
         return f"Operation already exists."
     else:
         new_payment = {
-            "id": str(uuid.uuid4()),
+            "id": int(uuid.uuid4()),
             "amount": body.amount,
             "currency": body.currency,
             "description": body.description,
