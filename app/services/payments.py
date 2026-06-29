@@ -1,4 +1,3 @@
-
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.repository.payments import PaymentRepository
@@ -13,14 +12,26 @@ class PaymentService:
         payment = await self.repository.get_by_id(payment_id)
         if not payment:
             raise HTTPException(status_code=404, detail=f"Payment {payment_id} not found")
-        return PaymentResponse.model_validate(payment)
+        # Создаем Pydantic модель вручную
+        return PaymentResponse(
+            id=payment.id,
+            amount=payment.amount,
+            currency=payment.currency,
+            description=payment.description,
+            meta=payment.meta,
+            status=payment.status,
+            idempotency_key=payment.idempotency_key,
+            webhook_url=payment.webhook_url,
+            created_at=payment.created_at,
+            processed_at=payment.processed_at
+        )
 
     async def create_payment(self, request: PaymentCreateRequest, idempotency_key: str) -> PaymentCreateResponse:
         existing = await self.repository.get_by_idempotency_key(idempotency_key)
         if existing:
             return PaymentCreateResponse(
                 id=existing.id,
-                status=existing.status,  # status теперь строка, не .value
+                status=existing.status,
                 created_at=existing.created_at
             )
 
@@ -28,7 +39,7 @@ class PaymentService:
             payment, outbox_event = await self.repository.create(request, idempotency_key)
             return PaymentCreateResponse(
                 id=payment.id,
-                status=payment.status,  # status теперь строка, не .value
+                status=payment.status,
                 created_at=payment.created_at
             )
         except ValueError as e:
