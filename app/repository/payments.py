@@ -1,8 +1,7 @@
 import uuid
 from datetime import datetime, timezone
-
 from fastapi import Header
-
+from sqlalchemy.orm import Session
 from app.models import Transaction
 from app.schemas import PaymentCreateRequest, PaymentCreateResponse
 
@@ -20,19 +19,18 @@ PAYMENTS = [{
 
 PROCESSED = [{"idempotency_key": "example_key", "info": PAYMENTS[0]}]
 
-def does_payment_exist(idempotency_key:str=Header(..., max_length=50)):
-    for i in PROCESSED:
-        if i["idempotency_key"] == idempotency_key:
-            return i["info"]
-    return False
 
-def get_payment(payment_id:str):
-    for payment in PAYMENTS:
-        if payment["id"]==payment_id:
-            return payment
-    return None
+def does_payment_exist(db: Session, idempotency_key: str = Header(..., max_length=50)):
+    payment = db.query(Transaction).filter(Transaction.idempotency_key == idempotency_key).first()
+    return payment
 
-def create_payment(body:PaymentCreateRequest, idempotency_key:str=Header(..., max_length=50)):
+
+def get_payment(db: Session, payment_id: str):
+    payment = db.query(Transaction).filter(Transaction.id == payment_id).first()
+    return payment
+
+
+def create_payment(db: Session, body: PaymentCreateRequest, idempotency_key: str = Header(..., max_length=50)):
     new_payment = {
         "id": str(uuid.uuid4()),
         "amount": body.amount,
@@ -44,11 +42,8 @@ def create_payment(body:PaymentCreateRequest, idempotency_key:str=Header(..., ma
         "webhook_url": body.webhook_url,
         "created_at": datetime.now(timezone.utc)
     }
-    PAYMENTS.append(new_payment)
-    PROCESSED.append({"idempotency_key": idempotency_key, "info": new_payment})
-    return PaymentCreateResponse.model_validate(new_payment)
-
-
-
-
-
+    payment = Transaction(**new_payment)
+    db.add(payment)
+    db.commit()
+    db.refresh(payment)
+    return payment
