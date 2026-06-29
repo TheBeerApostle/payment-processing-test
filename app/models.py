@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Mapped, mapped_column
-from database import Base
+from app.database import Base
 from decimal import Decimal
 from datetime import datetime
 
@@ -9,7 +9,7 @@ class Transaction(Base):
     amount: Mapped[Decimal]
     currency: Mapped[str]
     description: Mapped[str]
-    metadata: Mapped[str]
+    meta: Mapped[str]
     status: Mapped[str]
     idempotency_key: Mapped[str] = mapped_column(unique=True)
     webhook_url: Mapped[str]
