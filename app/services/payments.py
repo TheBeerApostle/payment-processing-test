@@ -1,22 +1,35 @@
-from fastapi import Response, Header, HTTPException
-from sqlalchemy.orm.session import Session
 
-from app.schemas import PaymentCreateResponse, PaymentCreateRequest
-from datetime import datetime, timezone
-from app.repository import payments as payments_repository
-from app.database import SessionLocal
+from fastapi import HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.repository.payments import PaymentRepository
+from app.schemas import PaymentCreateRequest, PaymentCreateResponse, PaymentResponse
+from uuid import UUID
 
-def get_payment(payment_id:str, db:Session):
-    data = payments_repository.get_payment(db=db, payment_id=payment_id)
-    if data:
-        return data
-    else:
-        raise HTTPException(status_code=400, detail=f"There are no transactions with id {payment_id}")
+class PaymentService:
+    def __init__(self, db: AsyncSession):
+        self.repository = PaymentRepository(db)
 
-def create_payment(db:Session, body:PaymentCreateRequest, idempotency_key:str=Header(..., max_length=50)):
-    if info:=payments_repository.does_payment_exist(idempotency_key=idempotency_key, db=db):
-        return {"message": "Payment already exists", "info": info}
-    else:
-        data = payments_repository.create_payment(db=db, body=body, idempotency_key=idempotency_key)
-        return data
+    async def get_payment(self, payment_id: UUID) -> PaymentResponse:
+        payment = await self.repository.get_by_id(payment_id)
+        if not payment:
+            raise HTTPException(status_code=404, detail=f"Payment {payment_id} not found")
+        return PaymentResponse.model_validate(payment)
 
+    async def create_payment(self, request: PaymentCreateRequest, idempotency_key: str) -> PaymentCreateResponse:
+        existing = await self.repository.get_by_idempotency_key(idempotency_key)
+        if existing:
+            return PaymentCreateResponse(
+                id=existing.id,
+                status=existing.status,  # status теперь строка, не .value
+                created_at=existing.created_at
+            )
+
+        try:
+            payment, outbox_event = await self.repository.create(request, idempotency_key)
+            return PaymentCreateResponse(
+                id=payment.id,
+                status=payment.status,  # status теперь строка, не .value
+                created_at=payment.created_at
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=409, detail=str(e))

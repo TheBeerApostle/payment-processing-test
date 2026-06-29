@@ -1,17 +1,31 @@
-from fastapi import Response, Header, Depends
-from fastapi import APIRouter
-from sqlalchemy.orm.session import Session
+from fastapi import APIRouter, Depends, Header
+from sqlalchemy.ext.asyncio import AsyncSession
+from uuid import UUID
 
-from app.schemas import PaymentCreateResponse, PaymentCreateRequest
-import app.services.payments as payment_service
-from dependency import db_connection
+from app.schemas import PaymentCreateRequest, PaymentCreateResponse, PaymentResponse
+from app.services.payments import PaymentService
+from app.database import get_db
+from app.dependency import verify_api_key
+
 router = APIRouter()
-@router.get("/{payment_id}")
-def get_payment(payment_id:str, db:Session=Depends(db_connection)):
-    return payment_service.get_payment(payment_id=payment_id, db=db)
 
+@router.get("/{payment_id}", response_model=PaymentResponse)
+async def get_payment(
+    payment_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    api_key: str = Depends(verify_api_key)
+):
+    """Получение информации о платеже"""
+    service = PaymentService(db)
+    return await service.get_payment(payment_id)
 
-
-@router.post("/")
-def create_payment(body:PaymentCreateRequest, idempotency_key:str=Header(..., max_length=50), db:Session=Depends(db_connection)):
-    return payment_service.create_payment(body=body,idempotency_key=idempotency_key, db=db)
+@router.post("", response_model=PaymentCreateResponse, status_code=202)
+async def create_payment(
+    body: PaymentCreateRequest,
+    idempotency_key: str = Header(..., max_length=50),
+    db: AsyncSession = Depends(get_db),
+    api_key: str = Depends(verify_api_key)
+):
+    """Создание платежа"""
+    service = PaymentService(db)
+    return await service.create_payment(body, idempotency_key)

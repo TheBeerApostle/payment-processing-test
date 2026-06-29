@@ -1,0 +1,123 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: payment_db
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: payments
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d payments"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - payment_network
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: payment_rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5673:5672"
+      - "15673:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - payment_network
+
+  # Миграции - отдельный сервис
+  migrations:
+    build: .
+    container_name: payment_migrations
+    command: alembic upgrade head
+    environment:
+      DATABASE_URL: postgresql+asyncpg://user:password@db:5432/payments
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - payment_network
+    volumes:
+      - .:/app
+
+  api:
+    build: .
+    container_name: payment_api
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      DATABASE_URL: postgresql+asyncpg://user:password@db:5432/payments
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      API_KEY: test-api-key-12345
+    ports:
+      - "8001:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
+    volumes:
+      - .:/app
+    networks:
+      - payment_network
+
+  outbox_processor:
+    build: .
+    container_name: payment_outbox
+    command: python -m app.services.outbox_runner
+    environment:
+      DATABASE_URL: postgresql+asyncpg://user:password@db:5432/payments
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
+    volumes:
+      - .:/app
+    networks:
+      - payment_network
+
+  consumer:
+    build: .
+    container_name: payment_consumer
+    command: python -m app.consumer.run_consumer
+    environment:
+      DATABASE_URL: postgresql+asyncpg://user:password@db:5432/payments
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
+    volumes:
+      - .:/app
+    networks:
+      - payment_network
+
+volumes:
+  postgres_data:
+  rabbitmq_data:
+
+networks:
+  payment_network:
+    driver: bridge
