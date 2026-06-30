@@ -19,7 +19,7 @@
 
 ```bash
 # Клонирование
-git clone <your-repo-url>
+git clone https://github.com/TheBeerApostle/payment-processing-test.git
 cd test_processing
 
 # Настройка окружения
