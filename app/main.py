@@ -12,7 +12,6 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup - создаем таблицы
     logger.info("Starting up...")
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -20,7 +19,6 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    # Shutdown
     logger.info("Shutting down...")
     await engine.dispose()
     logger.info("Cleanup completed")
@@ -41,7 +39,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Подключаем роутеры
+
 app.include_router(payments.router, prefix="/api/v1/payments", tags=["payments"])
 
 

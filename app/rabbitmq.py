@@ -24,7 +24,6 @@ class RabbitMQClient:
             self.connection = await connect_robust(settings.RABBITMQ_URL)
             self.channel = await self.connection.channel()
 
-            # Объявляем обменники
             self.exchange = await self.channel.declare_exchange(
                 self.PAYMENTS_EXCHANGE,
                 ExchangeType.DIRECT,
@@ -53,7 +52,6 @@ class RabbitMQClient:
                 durable=True
             )
 
-            # Привязываем очереди к обменникам
             await queue.bind(self.exchange, routing_key="payment.created")
             await dlq.bind(dlx, routing_key=self.DLQ_QUEUE)
 
@@ -92,14 +90,12 @@ class RabbitMQClient:
             return False
 
     async def consume_payments(self, callback: Callable):
-        """Потребление сообщений из очереди"""
         try:
             if not self.channel:
                 await self.connect()
 
             queue = await self.channel.get_queue(self.PAYMENTS_QUEUE)
 
-            # Используем итератор без автоматического подтверждения
             async with queue.iterator(no_ack=False) as queue_iter:
                 async for message in queue_iter:
                     try:

@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 import asyncio
 import logging
 from app.consumer.payment_consumer import PaymentConsumer

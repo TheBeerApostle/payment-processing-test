@@ -12,7 +12,6 @@ class PaymentService:
         payment = await self.repository.get_by_id(payment_id)
         if not payment:
             raise HTTPException(status_code=404, detail=f"Payment {payment_id} not found")
-        # Создаем Pydantic модель вручную
         return PaymentResponse(
             id=payment.id,
             amount=payment.amount,

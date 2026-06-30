@@ -40,7 +40,6 @@ class OutboxEvent(Base):
     aggregate_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     event_type = Column(String(50), nullable=False)
     payload = Column(JSON, nullable=False)
-    # Используем String вместо Enum для совместимости
     status = Column(String(20), nullable=False, default=OutboxStatus.PENDING.value)
     retry_count = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
